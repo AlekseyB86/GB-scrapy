@@ -5,14 +5,18 @@
 
 
 # useful for handling different item types with a single interface
+import re
+
 from itemadapter import ItemAdapter
 from pymongo import MongoClient
 
+SALARY_RE = re.compile(r'(\d+\s?\d+)')
+CURRENCY_RE = re.compile(r'\d+\s+([a-zA-Zа-яА-я]+)\.*\s*[^\d]*$')
 
 class JobparserPipeline:
     def __init__(self):
         client = MongoClient('localhost', 27017)
-        self.mongobase = client.vacancies0902
+        self.mongobase = client.vacancies1102
 
     def process_item(self, item, spider):
         salary = self.process_salary(item.get('salary'))
@@ -29,15 +33,18 @@ class JobparserPipeline:
         :param dirty_salary:
         :return:
         """
+        _dirty_salary = ''.join(dirty_salary).replace(u'\xa0', ' ')
+        salaries = re.findall(SALARY_RE, _dirty_salary)
         min_salary, max_salary, cur = None, None, None
-        if 1 < len(dirty_salary) < 6:
-            cur = dirty_salary[3]
-            if dirty_salary[0] == 'от ':
-                min_salary = int(dirty_salary[1].replace(u'\xa0', ''))
+
+        if salaries:
+            cur = re.search(CURRENCY_RE, _dirty_salary).group(1)
+            if len(salaries) == 1:
+                salary_value = int(salaries[0].replace(' ', ''))
+                if 'от' in _dirty_salary or 'до' not in _dirty_salary:
+                    min_salary = salary_value
+                else:
+                    max_salary = salary_value
             else:
-                max_salary = int(dirty_salary[1].replace(u'\xa0', ''))
-        elif len(dirty_salary) > 6:
-            cur = dirty_salary[5]
-            min_salary = int(dirty_salary[1].replace(u'\xa0', ''))
-            max_salary = int(dirty_salary[3].replace(u'\xa0', ''))
+                min_salary, max_salary = int(salaries[0].replace(' ', '')), int(salaries[1].replace(' ', ''))
         return min_salary, max_salary, cur

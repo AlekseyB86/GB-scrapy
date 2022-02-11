@@ -15,11 +15,11 @@ class HhruSpider(scrapy.Spider):
         if next_page := response.xpath("//a[@data-qa='pager-next']/@href").get():
             yield response.follow(next_page, callback=self.parse)
 
-        links = response.xpath("//a[@data-qa='vacancy-serp__vacancy-title']/@href").getall()
-        for link in links:
-            yield response.follow(link, callback=self.vacancy_parse)
+        links_hhru = response.xpath("//a[@data-qa='vacancy-serp__vacancy-title']/@href").getall()
+        for link in links_hhru:
+            yield response.follow(link, callback=self.vacancy_parse_hhru)
 
-    def vacancy_parse(self, response: HtmlResponse):
+    def vacancy_parse_hhru(self, response: HtmlResponse):
         name = response.xpath("//h1//text()").get()
         salary = response.xpath("//div[@data-qa='vacancy-salary']//text()").getall()
         url = response.url
