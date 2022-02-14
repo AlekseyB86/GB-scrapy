@@ -14,6 +14,7 @@ SPIDER_MODULES = ['avitoparser.spiders']
 NEWSPIDER_MODULE = 'avitoparser.spiders'
 
 LOG_ENABLED = True
+IMAGES_STORE = 'photos'
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
@@ -67,6 +68,7 @@ COOKIES_ENABLED = True
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
    'avitoparser.pipelines.AvitoparserPipeline': 300,
+   'avitoparser.pipelines.AvitoImagesPipeline': 200,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
