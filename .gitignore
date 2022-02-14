@@ -1,6 +1,9 @@
 /venv/
 /lesson_6/.idea/
-/lesson_7/.idea/
-/lesson_6/**/__pycache__/
 /lesson_6_books/.idea/
+/lesson_7/.idea/
+/lesson_7_lm/.idea/
+/lesson_6/**/__pycache__/
 /lesson_6_books/**/__pycache__/
+/lesson_7/**/__pycache__/
+/lesson_7_lm/**/__pycache__/
