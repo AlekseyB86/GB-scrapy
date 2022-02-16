@@ -5,9 +5,19 @@
 
 
 # useful for handling different item types with a single interface
-from itemadapter import ItemAdapter
+from pymongo import MongoClient
 
 
 class InstaparserPipeline:
+    def __init__(self):
+        client = MongoClient('localhost', 27017)
+        client.drop_database('insta1602')
+        self.mongobase = client.insta1602
+
     def process_item(self, item, spider):
+        try:
+            collection = self.mongobase[f'{item["from_user"]}-{item["type"]}']
+            collection.insert_one(item)
+        except Exception as e:
+            print(e)
         return item

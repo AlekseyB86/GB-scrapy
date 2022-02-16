@@ -1,15 +1,15 @@
 import json
-import os
+# import os
 import re
 
 import scrapy
 from scrapy.http import HtmlResponse
 from instaparser.items import InstaparserItem
 from urllib.parse import urlencode
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from copy import deepcopy
 
-load_dotenv()
+# load_dotenv()
 
 
 class InstaSpider(scrapy.Spider):
@@ -17,11 +17,12 @@ class InstaSpider(scrapy.Spider):
     allowed_domains = ['instagram.com']
     start_urls = ['https://www.instagram.com/']
     inst_login_link = 'https://www.instagram.com/accounts/login/ajax/'
-    inst_login = os.getenv('INST_LOGIN')
-    inst_password = os.getenv('INST_PASSWORD')
-    user_parse = 'techskills_2022'
+    inst_login = 'Onliskill_udm'
+    inst_password = '#PWD_INSTAGRAM_BROWSER:10:1644677079:AX1QAFsfSNcVaV94ohcAQgPEbgInWVmdhDQtD3X4Mn3b5aFlf0DLvP8n0h4wptBszm9uImjjVyUqeS3THd6sK8aR1KwvCr7OiR7vfHLATExBtX1+YcoCXNVoCA48Xjf9J2L7N4/hewUPutX/rQGS'
+    user_parse = ['techskills_2022', 'muzkom22']
     graphql_url = 'https://www.instagram.com/graphql/query/?'
     post_hash = '8c2a529969ee035a5063f2fc8602a0fd'
+    friends_url = 'https://i.instagram.com/api/v1/friendships'
 
     def parse(self, response: HtmlResponse, **kwargs):
         csrf = self.fetch_csrf_token(response.text)
@@ -35,48 +36,106 @@ class InstaSpider(scrapy.Spider):
     def login(self, response: HtmlResponse):
         j_data = response.json()
         if j_data.get('authenticated'):
-            yield response.follow(
-                f'/{self.user_parse}/',
-                callback=self.user_data_parse,
-                cb_kwargs={'username': self.user_parse}
-            )
+            for user in self.user_parse:
+                yield response.follow(
+                    f'/{user}/',
+                    callback=self.user_data_parse,
+                    cb_kwargs={'username': user}
+                )
 
     def user_data_parse(self, response: HtmlResponse, username):
-        user_id = self.fetch_user_id(response.text, username)
-        variables = {'id': user_id,
-                     'first': 12}
+        user_id = self.fetch_user_id(response, username)
+        variables_followers = {
+            'count': 12,
+            'search_surface': 'follow_list_page'
+        }
+        variables_following = {
+            'count': 12
+        }
+        url_followers = f'{self.friends_url}/{user_id}/followers/?{urlencode(variables_followers)}'
+        url_following = f'{self.friends_url}/{user_id}/following/?{urlencode(variables_following)}'
+        yield response.follow(
+            url_followers,
+            callback=self.user_followers_pars,
+            cb_kwargs={
+                'username': username,
+                'user_id': user_id,
+                'variables_followers': deepcopy(variables_followers)
+            },
+            headers={
+                'User-Agent': 'Instagram 155.0.0.37.107'
+            }
+        )
+        yield response.follow(
+            url_following,
+            callback=self.user_following_pars,
+            cb_kwargs={
+                'username': username,
+                'user_id': user_id,
+                'variables_following': deepcopy(variables_following)
+            },
+            headers={
+                'User-Agent': 'Instagram 155.0.0.37.107'
+            }
+        )
 
-        url_posts = f'{self.graphql_url}query_hash={self.post_hash}&{urlencode(variables)}'
-
-        yield response.follow(url_posts,
-                              callback=self.user_posts_parse,
-                              cb_kwargs={'username': username,
-                                         'user_id': user_id,
-                                         'variables': deepcopy(variables)})
-
-    def user_posts_parse(self, response: HtmlResponse, username, user_id, variables):
+    def user_followers_pars(self, response: HtmlResponse, username, user_id, variables_followers):
         j_data = response.json()
-        page_info = j_data.get('data').get('user').get('edge_owner_to_timeline_media').get('page_info')
-        if page_info.get('has_next_page'):
-            variables['after'] = page_info.get('end_cursor')
+        if j_data.get('big_list'):
+            variables_followers['max_id'] = j_data.get('next_max_id')
+            url_followers = f'{self.friends_url}/{user_id}/followers/?{urlencode(variables_followers)}'
+            yield response.follow(
+                url_followers,
+                callback=self.user_followers_pars,
+                cb_kwargs={
+                    'username': username,
+                    'user_id': user_id,
+                    'variables_followers': deepcopy(variables_followers)
+                },
+                headers={
+                    'User-Agent': 'Instagram 155.0.0.37.107'
+                }
+            )
 
-            url_posts = f'{self.graphql_url}query_hash={self.post_hash}&{urlencode(variables)}'
+        users = j_data.get('users')
+        for user in users:
+            yield InstaparserItem(
+                _id=user.get('pk'),
+                from_user=username,
+                type='followers',
+                username=user.get('username'),
+                full_name=user.get('full_name'),
+                profile_pic_url=user.get('profile_pic_url')
+            )
 
-            yield response.follow(url_posts,
-                                  callback=self.user_posts_parse,
-                                  cb_kwargs={'username': username,
-                                             'user_id': user_id,
-                                             'variables': deepcopy(variables)})
+    def user_following_pars(self, response: HtmlResponse, username, user_id, variables_following):
+        j_data = response.json()
+        if j_data.get('big_list'):
+            variables_following['max_id'] = j_data.get('next_max_id')
+            url_following = f'{self.friends_url}/{user_id}/following/?{urlencode(variables_following)}'
+            yield response.follow(
+                url_following,
+                callback=self.user_following_pars,
+                cb_kwargs={
+                    'username': username,
+                    'user_id': user_id,
+                    'variables_following': deepcopy(variables_following)
+                },
+                headers={
+                    'User-Agent': 'Instagram 155.0.0.37.107'
+                }
+            )
 
-            posts = j_data.get('data').get('user').get('edge_owner_to_timeline_media').get('edges')
-            for post in posts:
-                yield InstaparserItem(
-                    user_id=user_id,
-                    username=username,
-                    photo=post.get('node').get('display_url'),
-                    likes=post.get('node').get('edge_media_preview_like').get('count'),
-                    post_data=post.get('node')
-                )
+        users = j_data.get('users')
+        for user in users:
+            yield InstaparserItem(
+                _id=user.get('pk'),
+                from_user=username,
+                type='following',
+                username=user.get('username'),
+                full_name=user.get('full_name'),
+                profile_pic_url=user.get('profile_pic_url')
+            )
 
     @staticmethod
     def fetch_csrf_token(text):
